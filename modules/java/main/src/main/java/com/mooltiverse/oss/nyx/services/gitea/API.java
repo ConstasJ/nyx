@@ -16,6 +16,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import static com.mooltiverse.oss.nyx.log.Markers.SERVICE;
+import static com.mooltiverse.oss.nyx.services.gitea.Gitea.logger;
+
 public class API {
     private final URI BASE_URI;
 
@@ -137,6 +140,29 @@ public class API {
     }
 
     /**
+     * Sends the given request and returns the response, logging as needed.
+     *
+     * @param request the request to send
+     *
+     * @return the response
+     *
+     * @throws IOException if thrown by the underlying implementation
+     * @throws InterruptedException if thrown by the underlying implementation
+     * @throws IllegalArgumentException if thrown by the underlying implementation
+     */
+    protected HttpResponse<String> sendRequest(HttpRequest request)
+            throws IOException, InterruptedException, IllegalArgumentException {
+        logger.debug(SERVICE, "HTTP request: '{}' '{}'", request.method(), request.uri());
+        logger.trace(SERVICE, "HTTP request headers: '{}'", request.headers().toString());
+        HttpResponse<String> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+        logger.debug(SERVICE, "HTTP response code: '{}'", response.statusCode());
+        logger.trace(SERVICE, "HTTP response headers: '{}'", response.headers().toString());
+        logger.trace(SERVICE, "HTTP response body:");
+        logger.trace(SERVICE, response.body());
+        return response;
+    }
+
+    /**
      * Creates a new repository for the currently authenticated user.
      * <br>
      * Please note that if the service has been configured with repository owner and name those attributes are ignored
@@ -166,10 +192,10 @@ public class API {
 
         HttpResponse<String> response = null;
         try {
-            response = HttpClient.newHttpClient().send(getRequestBuilder(true)
-                .POST(HttpRequest.BodyPublishers.ofString(requestParameters.toString()))
-                .uri(uri)
-                .build(), HttpResponse.BodyHandlers.ofString());
+            response = sendRequest(getRequestBuilder(true)
+                    .POST(HttpRequest.BodyPublishers.ofString(requestParameters.toString()))
+                    .uri(uri)
+                    .build());
         } catch(IOException| InterruptedException e) {
             throw new TransportException(e);
         }
@@ -202,10 +228,10 @@ public class API {
 
         HttpResponse<String> response = null;
         try {
-            response = HttpClient.newHttpClient().send(getRequestBuilder(true)
-                .DELETE()
-                .uri(uri)
-                .build(), HttpResponse.BodyHandlers.ofString());
+            response = sendRequest(getRequestBuilder(true)
+                    .DELETE()
+                    .uri(uri)
+                    .build());
         } catch(IOException| InterruptedException e) {
             throw new TransportException(e);
         }
@@ -215,5 +241,45 @@ public class API {
                 throw new SecurityException(String.format("Request returned a status code '%d': %s", response.statusCode(), response.body()));
             throw new TransportException(String.format("Request returned a status code '%d': %s", response.statusCode(), response.body()));
         }
+    }
+
+    /**
+     * Finds the release in the given repository by the release tag.
+     *
+     * @param owner the name of the owner of the repository to get the release for. It can't be {@code null}
+     * @param repository the name of the repository to get the release for. It can't be {@code null}
+     * @param tag the release tag (i.e. {@code 1.2.3}, {@code v4.5.6}). It can't be {@code null}
+     *
+     * @return the attributes of the requested release, if available, or {@code null} otherwise
+     *
+     * @throws SecurityException if authentication or authorization fails
+     * @throws TransportException if communication to the remote endpoint fails
+     * @throws UnsupportedOperationException if the underlying implementation does not
+     * {@link #supports(Service.Feature) support} the {@link Service.Feature#RELEASES} feature.
+     */
+    Map<String, Object> getReleaseByTag(String owner, String repository, String tag)
+            throws SecurityException, TransportException {
+        Objects.requireNonNull(owner, "The release repository owner cannot be null");
+        Objects.requireNonNull(repository, "The release repository name cannot be null");
+        Objects.requireNonNull(tag, "The release tag cannot be null");
+        URI uri = newRequestURI("/repos/" + owner + "/" + repository + "/releases/tags/" + tag);
+
+        HttpResponse<String> response = null;
+        try {
+            response = sendRequest(getRequestBuilder(true).uri(uri).GET().build());
+        }
+        catch (IOException | InterruptedException e) {
+            throw new TransportException(e);
+        }
+
+        if (response.statusCode() != 200) {
+            if (response.statusCode() == 404)
+                return null; // the object just doesn't exist
+            else if (response.statusCode() == 401 || response.statusCode() == 403)
+                throw new SecurityException(String.format("Request returned a status code '%d': %s", response.statusCode(), response.body()));
+            else throw new TransportException(String.format("Request returned a status code '%d': %s", response.statusCode(), response.body()));
+        }
+
+        return unmarshalJSONBody(response.body());
     }
 }

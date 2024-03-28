@@ -4,12 +4,16 @@ import com.mooltiverse.oss.nyx.entities.Attachment;
 import com.mooltiverse.oss.nyx.io.TransportException;
 import com.mooltiverse.oss.nyx.services.*;
 import com.mooltiverse.oss.nyx.services.SecurityException;
+import com.mooltiverse.oss.nyx.services.gitlab.GitLab;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.Set;
 
 public class Gitea implements GitHostingService, ReleaseService, UserService {
 
+    static final Logger logger = LoggerFactory.getLogger(Gitea.class);
     private Gitea() {
 
     }
