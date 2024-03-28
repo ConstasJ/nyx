@@ -10,6 +10,10 @@ import java.util.Set;
 
 public class Gitea implements GitHostingService, ReleaseService, UserService {
 
+    private Gitea() {
+
+    }
+
     /**
      * @param name        the repository name. Cannot be {@code null}
      * @param description the repository description. It may be {@code null}
