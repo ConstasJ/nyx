@@ -174,4 +174,38 @@ public class API {
 
         return unmarshalJSONBody(response.body());
     }
+
+    /**
+     * Deletes a repository for the currently authenticated user.
+     * <br>
+     * Please note that if the service has been configured with repository owner and name those attributes are ignored
+     * by this method as the owner is always the authenticated user (the one owning the configured credentials) and the
+     * name is always the {@code name} attribute.
+     *
+     * @param name the repository name. Cannot be {@code null}
+     *
+     * @throws TransportException if a transport related error occurs while communicating with the server
+     * @throws SecurityException if authentication fails
+     */
+    void deleteRepository(String name)
+        throws TransportException, SecurityException {
+        Objects.requireNonNull(name, "The name of the repository to delete cannot be null");
+        URI uri = newRequestURI("/repos/" + name);
+
+        HttpResponse<String> response = null;
+        try {
+            response = HttpClient.newHttpClient().send(getRequestBuilder(true)
+                .DELETE()
+                .uri(uri)
+                .build(), HttpResponse.BodyHandlers.ofString());
+        } catch(IOException| InterruptedException e) {
+            throw new TransportException(e);
+        }
+
+        if(response.statusCode() != 204){
+            if (response.statusCode() == 401 || response.statusCode() == 403)
+                throw new SecurityException(String.format("Request returned a status code '%d': %s", response.statusCode(), response.body()));
+            throw new TransportException(String.format("Request returned a status code '%d': %s", response.statusCode(), response.body()));
+        }
+    }
 }
