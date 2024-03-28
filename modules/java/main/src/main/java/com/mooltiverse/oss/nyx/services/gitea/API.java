@@ -42,6 +42,14 @@ public class API {
         return URI.create(baseURI.concat(path));
     }
 
+    /**
+     * Returns an HTTP client builder with all reusable attributes set. The returned object is not aware of any authentication
+     * method.<br>
+     * After retrieving the client builder with this method you can set custom properties if you need to and then get a new client
+     * instance with {@link HttpClient.Builder#build()}.
+     *
+     * @return an HTTP client builder with all reusable attributes set.
+     */
     private synchronized HttpRequest.Builder getRequestBuilder(boolean authenticate)
             throws SecurityException {
             HttpRequest.Builder builder = HttpRequest.newBuilder()
